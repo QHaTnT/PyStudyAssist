@@ -346,13 +346,9 @@ class MainWindow(QMainWindow):
             self.nav_list.setCurrentRow(0)
 
     def closeEvent(self, event):
-        reply = QMessageBox.question(
-            self, '确认退出',
-            '确定退出 PyStudyAssist 吗？',
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        if reply == QMessageBox.Yes:
+        from ui.styles.message_box import ask_question
+        reply = ask_question(self, '确认退出', '确定退出 PyStudyAssist 吗？')
+        if reply:
             event.accept()
         else:
             event.ignore()

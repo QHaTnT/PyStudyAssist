@@ -6,13 +6,14 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFileDialog,
     QListWidget, QListWidgetItem, QGroupBox, QTableWidget, QTableWidgetItem, QHeaderView,
-    QComboBox, QApplication, QMessageBox, QInputDialog, QLineEdit
+    QComboBox, QApplication, QInputDialog, QLineEdit
 )
 from PyQt5.QtGui import QPixmap, QFont
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QGraphicsDropShadowEffect
 from utils.data_loader import DataLoader
 from database.db_manager import db_manager
+from ui.styles.message_box import show_info, show_warning, show_error, ask_question
 from config import THEME_COLORS
 
 
@@ -355,7 +356,7 @@ class ProfileWidget(QWidget):
     def reset_database(self):
         """重置学习记录：清空所有个人学习数据，保留题库和考试"""
         # 第一次确认
-        reply1 = QMessageBox.warning(
+        reply1 = show_warning(
             self,
             '⚠️ 危险操作',
             '您确定要重置学习记录吗？\n\n'
@@ -365,12 +366,10 @@ class ProfileWidget(QWidget):
             '• 清空所有错题记录\n'
             '• 清空所有考试记录\n'
             '• 回到初始状态（题库和考试保留）\n\n'
-            '⚠️ 此操作不可恢复！',
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            '⚠️ 此操作不可恢复！'
         )
 
-        if reply1 != QMessageBox.Yes:
+        if not reply1:
             return
 
         # 第二次确认（要求输入确认文字）
@@ -383,7 +382,7 @@ class ProfileWidget(QWidget):
         )
 
         if not ok or text.strip() != '确认重置':
-            QMessageBox.information(self, '已取消', '学习记录重置操作已取消。')
+            show_info(self, '已取消', '学习记录重置操作已取消。')
             return
 
         # 执行重置
@@ -416,7 +415,7 @@ class ProfileWidget(QWidget):
 
             db_manager.disconnect()
 
-            QMessageBox.information(
+            show_info(
                 self,
                 '✅ 重置成功',
                 '学习记录已成功清空！\n\n'
@@ -429,7 +428,7 @@ class ProfileWidget(QWidget):
             QTimer.singleShot(3000, lambda: QApplication.instance().quit())
 
         except Exception as e:
-            QMessageBox.critical(
+            show_error(
                 self,
                 '❌ 重置失败',
                 f'学习记录重置失败：\n\n{str(e)}\n\n'

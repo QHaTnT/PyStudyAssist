@@ -280,7 +280,11 @@ class ExamWidget(QWidget):
             import json
             options = json.loads(q['options']) if q['options'] else []
             for i, opt in enumerate(options):
-                radio = QRadioButton(f"{chr(65+i)}. {opt}")
+                # 如果选项已经有 A. B. C. D. 前缀，不再添加
+                if opt and len(opt) > 2 and opt[0] in 'ABCDEFGH' and opt[1] in '.．、':
+                    radio = QRadioButton(opt)
+                else:
+                    radio = QRadioButton(f"{chr(65+i)}. {opt}")
                 radio.setFont(QFont("Microsoft YaHei", 15))
                 radio.setStyleSheet("""
                     QRadioButton {

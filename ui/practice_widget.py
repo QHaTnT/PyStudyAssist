@@ -5,7 +5,7 @@
 """
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
                              QListWidget, QTextEdit, QRadioButton, QLineEdit, QGroupBox,
-                             QMessageBox, QButtonGroup, QComboBox, QCheckBox, QSplitter,
+                             QButtonGroup, QComboBox, QCheckBox, QSplitter,
                              QListWidgetItem, QProgressBar, QScrollArea)
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFont
@@ -13,6 +13,7 @@ from database.db_manager import db_manager
 from utils.data_loader import DataLoader
 from utils.code_executor import CodeExecutor
 from models.question import Question
+from ui.styles.message_box import show_info, show_warning, show_error
 from config import KNOWLEDGE_CATEGORIES, QUESTION_TYPES, THEME_COLORS
 from datetime import datetime
 import time
@@ -265,19 +266,19 @@ class PracticeWidget(QWidget):
                 self.display_question(self.current_questions[0])
                 self.update_navigation()
                 status = "（仅未做）" if only_new else "（包含已做）"
-                QMessageBox.information(self, '成功', f'已加载 {len(self.current_questions)} 道题目{status}！')
+                show_info(self, '成功', f'已加载 {len(self.current_questions)} 道题目{status}！')
             else:
                 if only_new:
-                    QMessageBox.warning(self, '提示', '没有找到未做的题目！\n提示：可以取消勾选"只显示未做题目"来查看所有题目。')
+                    show_warning(self, '提示', '没有找到未做的题目！\n提示：可以取消勾选"只显示未做题目"来查看所有题目。')
                 else:
-                    QMessageBox.warning(self, '提示', '没有找到符合条件的题目！')
+                    show_warning(self, '提示', '没有找到符合条件的题目！')
                 self.clear_display()
         except Exception as e:
             # 添加错误处理，防止崩溃
             import traceback
             error_msg = f'加载题目失败: {str(e)}\n\n{traceback.format_exc()}'
             print(f'[ERROR] {error_msg}')
-            QMessageBox.critical(self, '错误', f'加载题目失败: {str(e)}')
+            show_error(self, '错误', f'加载题目失败: {str(e)}')
             try:
                 db_manager.disconnect()
             except:
@@ -438,7 +439,7 @@ class PracticeWidget(QWidget):
 
         user_answer = self.get_user_answer()
         if user_answer is None:
-            QMessageBox.warning(self, '提示', '请先作答！')
+            show_warning(self, '提示', '请先作答！')
             return
 
         # 停止计时
@@ -551,9 +552,9 @@ class PracticeWidget(QWidget):
 
         # 显示消息框
         if is_correct:
-            QMessageBox.information(self, '正确', '✓ 回答正确！')
+            show_info(self, '正确', '✓ 回答正确！')
         else:
-            QMessageBox.warning(self, '错误', f'✗ 回答错误！\n正确答案: {self.current_question.answer}')
+            show_warning(self, '错误', f'✗ 回答错误！\n正确答案: {self.current_question.answer}')
 
     def prev_question(self):
         """上一题"""

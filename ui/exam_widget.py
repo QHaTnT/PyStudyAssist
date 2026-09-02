@@ -5,7 +5,7 @@
 """
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QListWidget, QListWidgetItem, QTextEdit,
-                             QRadioButton, QButtonGroup, QMessageBox, QGroupBox,
+                             QRadioButton, QButtonGroup, QGroupBox,
                              QProgressBar, QTabWidget, QTableWidget, QTableWidgetItem,
                              QHeaderView, QScrollArea, QFrame, QLineEdit, QDialog, QDialogButtonBox)
 from PyQt5.QtCore import Qt, QTimer, QDateTime
@@ -13,6 +13,7 @@ from PyQt5.QtGui import QFont, QColor
 from config import THEME_COLORS
 from database.db_manager import DatabaseManager
 from utils.code_executor import CodeExecutor
+from ui.styles.message_box import show_info, show_warning, show_error, ask_question
 import json
 import time
 
@@ -326,7 +327,7 @@ class ExamWidget(QWidget):
                 self.exam_list.addItem(item)
 
         except Exception as e:
-            QMessageBox.warning(self, '错误', f'加载考试列表失败: {str(e)}')
+            show_warning(self, '错误', f'加载考试列表失败: {str(e)}')
         finally:
             self.db.disconnect()
 
@@ -352,11 +353,11 @@ class ExamWidget(QWidget):
     def start_exam(self):
         """开始考试"""
         if not self.current_exam:
-            QMessageBox.warning(self, '提示', '请先选择一场考试')
+            show_warning(self, '提示', '请先选择一场考试')
             return
 
         # 确认开始考试
-        reply = QMessageBox.question(
+        reply = ask_question(
             self, '确认',
             f"确定要开始「{self.current_exam['name']}」考试吗？\n考试时长：{self.current_exam['duration']}分钟",
             QMessageBox.Yes | QMessageBox.No
@@ -391,10 +392,10 @@ class ExamWidget(QWidget):
             # 更新进度
             self.update_progress()
 
-            QMessageBox.information(self, '提示', '考试已开始，请认真作答！')
+            show_info(self, '提示', '考试已开始，请认真作答！')
 
         except Exception as e:
-            QMessageBox.critical(self, '错误', f'开始考试失败: {str(e)}')
+            show_error(self, '错误', f'开始考试失败: {str(e)}')
 
     def load_exam_questions(self):
         """加载考试题目"""
@@ -622,7 +623,7 @@ class ExamWidget(QWidget):
         if remaining <= 0:
             # 时间到，自动提交
             self.timer.stop()
-            QMessageBox.warning(self, '时间到', '考试时间已到，系统将自动提交！')
+            show_warning(self, '时间到', '考试时间已到，系统将自动提交！')
             self.submit_exam()
             return
 
@@ -632,7 +633,7 @@ class ExamWidget(QWidget):
 
         # 最后5分钟提醒
         if remaining == 300:
-            QMessageBox.warning(self, '提醒', '还剩5分钟，请抓紧时间！')
+            show_warning(self, '提醒', '还剩5分钟，请抓紧时间！')
 
     def update_progress(self):
         """更新进度条"""
@@ -660,7 +661,7 @@ class ExamWidget(QWidget):
     def submit_exam(self):
         """提交考试"""
         # 确认提交
-        reply = QMessageBox.question(
+        reply = ask_question(
             self, '确认提交',
             f'已答 {len(self.answers)}/{len(self.questions)} 题\n确定要提交考试吗？',
             QMessageBox.Yes | QMessageBox.No
@@ -707,7 +708,7 @@ class ExamWidget(QWidget):
 用时：{time_spent} 分钟
 结果：{'✓ 及格' if passed else '✗ 不及格'}
             """
-            QMessageBox.information(self, '考试结果', result_msg)
+            show_info(self, '考试结果', result_msg)
 
             # 切换到考试记录页
             self.load_exam_history()
@@ -737,7 +738,7 @@ class ExamWidget(QWidget):
                 self.timer.stop()
 
         except Exception as e:
-            QMessageBox.critical(self, '错误', f'提交考试失败: {str(e)}')
+            show_error(self, '错误', f'提交考试失败: {str(e)}')
         finally:
             self.db.disconnect()
 
@@ -950,7 +951,7 @@ class ExamWidget(QWidget):
                 self.history_table.setItem(row_position, 6, QTableWidgetItem(status_text))
 
         except Exception as e:
-            QMessageBox.warning(self, '错误', f'加载考试记录失败: {str(e)}')
+            show_warning(self, '错误', f'加载考试记录失败: {str(e)}')
         finally:
             self.db.disconnect()
 

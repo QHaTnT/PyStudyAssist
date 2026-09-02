@@ -215,12 +215,12 @@ class ProfileWidget(QWidget):
                 self.avatar_label.setPixmap(scaled)
                 self.avatar_label.setStyleSheet("border-radius: 50px; border: 2px solid #E2E8F0;")
 
-            from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.information(self, '成功', '头像上传成功！')
+            from ui.styles.message_box import show_info
+            show_info(self, '成功', '头像上传成功！')
 
         except Exception as e:
-            from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.critical(self, '错误', f'头像上传失败: {str(e)}')
+            from ui.styles.message_box import show_error
+            show_error(self, '错误', f'头像上传失败: {str(e)}')
 
     def refresh(self):
         """刷新统计数据"""

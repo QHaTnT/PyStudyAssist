@@ -4,7 +4,7 @@
 显示和管理用户的错题
 """
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-                             QTableWidget, QTableWidgetItem, QGroupBox, QMessageBox,
+                             QTableWidget, QTableWidgetItem, QGroupBox,
                              QHeaderView, QTextEdit, QDialog, QDialogButtonBox,
                              QSplitter, QScrollArea, QFrame, QComboBox, QListWidget,
                              QListWidgetItem, QLineEdit, QProgressBar, QGraphicsDropShadowEffect)
@@ -13,6 +13,7 @@ from PyQt5.QtGui import QFont, QColor
 from utils.data_loader import DataLoader
 from utils.code_executor import CodeExecutor
 from models.question import Question
+from ui.styles.message_box import show_info, show_warning, ask_question
 from config import THEME_COLORS, QUESTION_TYPES
 from database.db_manager import db_manager
 from datetime import datetime
@@ -785,7 +786,7 @@ class MistakesWidget(QWidget):
         self.in_retest = False
 
         if not self.review_queue:
-            QMessageBox.information(self, '提示', '当前分组没有可复习的错题。')
+            show_info(self, '提示', '当前分组没有可复习的错题。')
             return
 
         self.enter_review_mode()
@@ -930,12 +931,12 @@ class MistakesWidget(QWidget):
 
         retest_count = len(self.mastered_candidates)
         if retest_count == 0:
-            QMessageBox.information(self, '复习完成', '本次复习已结束。没有标记“已掌握”的题目需要重测。')
+            show_info(self, '复习完成', '本次复习已结束。没有标记“已掌握”的题目需要重测。')
             self.exit_review_mode()
             self.refresh()
             return
 
-        reply = QMessageBox.question(
+        reply = ask_question(
             self, '复习完成', f'本次有 {retest_count} 道已掌握题目。是否开始重新测试？',
             QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
         )
@@ -980,7 +981,7 @@ class MistakesWidget(QWidget):
                 finally:
                     db_manager.disconnect()
 
-            QMessageBox.information(self, '重测完成', f'重新测试完成！本次共移除 {removed} 道错题。')
+            show_info(self, '重测完成', f'重新测试完成！本次共移除 {removed} 道错题。')
             self.card_group.setTitle('卡片式复习')
             self.card_group.setVisible(False)
             self.in_retest = False

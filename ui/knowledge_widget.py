@@ -289,7 +289,8 @@ class KnowledgeWidget(QWidget):
             )
         db_manager.disconnect()
 
-        QMessageBox.information(self, '成功', '已标记为完成！')
+        from ui.styles.message_box import show_info
+        show_info(self, '成功', '已标记为完成！')
         self.update_progress()
         self.timer.stop()
         self.start_time = None

@@ -163,13 +163,8 @@ class EditorWidget(QWidget):
     def new_file(self):
         """新建文件"""
         if self.code_editor.toPlainText().strip():
-            reply = QMessageBox.question(
-                self, '确认',
-                '当前文件未保存，是否继续？',
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
-            if reply == QMessageBox.No:
+            from ui.styles.message_box import ask_question
+            if not ask_question(self, '确认', '当前文件未保存，是否继续？'):
                 return
 
         self.code_editor.clear()
@@ -194,7 +189,8 @@ class EditorWidget(QWidget):
                     self.file_label.setText(os.path.basename(file_path))
                     self.output_text.append(f'✓ 已打开文件: {file_path}')
             except Exception as e:
-                QMessageBox.critical(self, '错误', f'打开文件失败: {str(e)}')
+                from ui.styles.message_box import show_error
+                show_error(self, '错误', f'打开文件失败: {str(e)}')
 
     def save_file(self):
         """保存文件"""
@@ -215,16 +211,19 @@ class EditorWidget(QWidget):
                     self.current_file = file_path
                     self.file_label.setText(os.path.basename(file_path))
                     self.output_text.append(f'✓ 已保存文件: {file_path}')
-                    QMessageBox.information(self, '成功', '文件保存成功！')
+                    from ui.styles.message_box import show_info
+                    show_info(self, '成功', '文件保存成功！')
             except Exception as e:
-                QMessageBox.critical(self, '错误', f'保存文件失败: {str(e)}')
+                from ui.styles.message_box import show_error
+                show_error(self, '错误', f'保存文件失败: {str(e)}')
 
     def run_code(self):
         """运行代码（多线程异步执行）"""
         code = self.code_editor.toPlainText().strip()
 
         if not code:
-            QMessageBox.warning(self, '提示', '请先输入代码！')
+            from ui.styles.message_box import show_warning
+            show_warning(self, '提示', '请先输入代码！')
             return
 
         # 如果有正在执行的代码，先停止
@@ -268,14 +267,8 @@ class EditorWidget(QWidget):
 
     def clear_editor(self):
         """清空编辑器"""
-        reply = QMessageBox.question(
-            self, '确认',
-            '确定要清空编辑器吗？',
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-
-        if reply == QMessageBox.Yes:
+        from ui.styles.message_box import ask_question
+        if ask_question(self, '确认', '确定要清空编辑器吗？'):
             self.code_editor.clear()
 
     def refresh(self):
