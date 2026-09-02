@@ -159,6 +159,47 @@ class ProfileWidget(QWidget):
         acc_layout.addWidget(self._accuracy_label)
 
         layout.addWidget(accuracy_card)
+
+        # 重置学习记录按钮
+        reset_card = QFrame()
+        reset_card.setStyleSheet(f"""
+            QFrame {{
+                background: {COLORS['glass_bg_solid']};
+                border: 2px solid {COLORS['border']};
+                border-radius: 16px;
+            }}
+        """)
+        reset_layout = QVBoxLayout(reset_card)
+        reset_layout.setContentsMargins(24, 20, 24, 20)
+        reset_layout.setSpacing(12)
+
+        reset_title = QLabel("⚠️ 危险操作")
+        reset_title.setFont(QFont("Microsoft YaHei", 16, QFont.Bold))
+        reset_title.setStyleSheet(f"color: {COLORS['danger']}; background: transparent;")
+        reset_layout.addWidget(reset_title)
+
+        reset_desc = QLabel("重置学习记录：清空所有个人学习数据，保留题库和考试（不可恢复）")
+        reset_desc.setFont(QFont("Microsoft YaHei", 14))
+        reset_desc.setStyleSheet(f"color: {COLORS['text_secondary']}; background: transparent;")
+        reset_desc.setWordWrap(True)
+        reset_layout.addWidget(reset_desc)
+
+        reset_btn = QPushButton("🗑️ 重置学习记录")
+        reset_btn.setFont(QFont("Microsoft YaHei", 14, QFont.Bold))
+        reset_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {COLORS['danger']};
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 10px 20px;
+            }}
+            QPushButton:hover {{ background: #DC2626; }}
+        """)
+        reset_btn.clicked.connect(self._reset_learning_records)
+        reset_layout.addWidget(reset_btn, alignment=Qt.AlignLeft)
+
+        layout.addWidget(reset_card)
         layout.addStretch()
 
     def _load_avatar(self):
@@ -221,6 +262,57 @@ class ProfileWidget(QWidget):
         except Exception as e:
             from ui.styles.message_box import show_error
             show_error(self, '错误', f'头像上传失败: {str(e)}')
+
+    def _reset_learning_records(self):
+        """重置学习记录：清空所有个人学习数据，保留题库和考试"""
+        from ui.styles.message_box import show_info, show_error, ask_question
+
+        reply = ask_question(
+            self, '⚠️ 确认重置',
+            '您确定要重置学习记录吗？\n\n'
+            '以下数据将被清空：\n'
+            '• 所有学习记录\n'
+            '• 所有练习记录\n'
+            '• 所有错题记录\n'
+            '• 所有考试记录\n\n'
+            '题库、知识点和考试配置将保留。\n\n'
+            '此操作不可恢复！'
+        )
+
+        if not reply:
+            return
+
+        try:
+            from core.database.sqlite_manager import db
+
+            # 只清空用户相关的记录表，保留题库、知识点、考试等数据
+            user_id = self.current_user.id
+
+            # 清空考试记录
+            db.execute_update('DELETE FROM exam_records WHERE user_id = ?', (user_id,))
+            # 清空学习记录
+            db.execute_update('DELETE FROM learning_records WHERE user_id = ?', (user_id,))
+            # 清空练习记录
+            db.execute_update('DELETE FROM practice_records WHERE user_id = ?', (user_id,))
+            # 清空错题本
+            db.execute_update('DELETE FROM wrong_questions WHERE user_id = ?', (user_id,))
+
+            show_info(
+                self, '✅ 重置成功',
+                '学习记录已成功清空！\n\n'
+                '所有个人学习数据已清除，\n'
+                '题库和考试配置保持不变。'
+            )
+
+            # 刷新显示
+            self.refresh()
+
+        except Exception as e:
+            show_error(
+                self, '❌ 重置失败',
+                f'学习记录重置失败：\n\n{str(e)}\n\n'
+                '请检查数据库连接后重试。'
+            )
 
     def refresh(self):
         """刷新统计数据"""
