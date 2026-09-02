@@ -253,6 +253,16 @@ class AIAssistant(QWidget):
         self.chat_area = QTextBrowser()
         self.chat_area.setOpenExternalLinks(True)
         self.chat_area.setPlaceholderText("开始聊天...")
+        self.chat_area.setStyleSheet("""
+            QTextBrowser {
+                background: white;
+                border: none;
+                padding: 12px;
+                font-family: 'Microsoft YaHei', sans-serif;
+                font-size: 15px;
+                line-height: 1.6;
+            }
+        """)
         panel_layout.addWidget(self.chat_area, 1)
 
         # ===== 加载指示 =====
@@ -906,49 +916,75 @@ class AIAssistant(QWidget):
         self._append_message("assistant", "对话已清空，请问有什么可以帮助你的？")
 
     def _markdown_to_html(self, text):
-        """将 Markdown 转换为 HTML，支持更多语法"""
+        """将 Markdown 转换为 HTML"""
+        fs = self._current_font_size
+
+        # 尝试使用 mistune
+        try:
+            import mistune
+            html = mistune.html(text)
+        except ImportError:
+            # 如果 mistune 不可用，使用简单的转换
+            html = self._simple_markdown_to_html(text)
+
+        # 为 HTML 元素添加内联样式
+        # 代码块样式
+        html = html.replace('<pre><code>', f'<pre style="background:#2D2D2D; color:#E0E0E0; padding:12px 16px; border-radius:8px; margin:8px 0; font-family:Consolas,monospace; font-size:{max(13, fs-1)}px; line-height:1.6; overflow-x:auto; white-space:pre-wrap;"><code>')
+        html = html.replace('<pre><code class="language-', f'<pre style="background:#2D2D2D; color:#E0E0E0; padding:12px 16px; border-radius:8px; margin:8px 0; font-family:Consolas,monospace; font-size:{max(13, fs-1)}px; line-height:1.6; overflow-x:auto; white-space:pre-wrap;"><code class="language-')
+        html = html.replace('<code>', f'<code style="background:#E8E8E8; color:#D63384; padding:2px 6px; border-radius:4px; font-family:Consolas,monospace; font-size:{max(12, fs-2)}px;">')
+
+        # 标题样式
+        html = html.replace('<h1>', f'<h1 style="margin:16px 0 10px 0; font-size:{int(fs*1.4)}px; font-weight:600;">')
+        html = html.replace('<h2>', f'<h2 style="margin:14px 0 8px 0; font-size:{int(fs*1.2)}px; font-weight:600;">')
+        html = html.replace('<h3>', f'<h3 style="margin:12px 0 6px 0; font-size:{int(fs*1.1)}px; font-weight:600;">')
+
+        # 列表样式
+        html = html.replace('<ul>', '<ul style="margin:8px 0; padding-left:24px;">')
+        html = html.replace('<ol>', '<ol style="margin:8px 0; padding-left:24px;">')
+        html = html.replace('<li>', f'<li style="margin:4px 0; line-height:1.6;">')
+
+        # 表格样式
+        html = html.replace('<table>', '<table style="border-collapse:collapse; margin:8px 0; width:100%;">')
+        html = html.replace('<th>', '<th style="border:1px solid #E2E8F0; padding:8px 12px; background:#F8FAFC; text-align:left;">')
+        html = html.replace('<td>', '<td style="border:1px solid #E2E8F0; padding:8px 12px;">')
+
+        return html
+
+    def _simple_markdown_to_html(self, text):
+        """简单的 Markdown 转 HTML（当 mistune 不可用时使用）"""
         import re
         html = text
-        fs = self._current_font_size
-        code_fs = max(13, fs - 1)  # 代码字体略小于正文
 
         # 代码块
         def replace_code_block(match):
-            lang = match.group(1) or ''
             code = match.group(2)
             code = code.replace('<', '&lt;').replace('>', '&gt;')
-            lang_label = f'<div style="background:#1E1E1E; color:#888; padding:8px 16px; border-radius:8px 8px 0 0; font-size:{code_fs}px;">{lang}</div>' if lang else ''
-            return f'{lang_label}<div style="background:#2D2D2D; color:#E0E0E0; padding:12px 16px; border-radius:0 0 8px 8px; margin:0 0 8px 0; font-family:Consolas,monospace; font-size:{code_fs}px; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">{code}</div>'
-
+            return f'<pre><code>{code}</code></pre>'
         html = re.sub(r'```(\w*)\n(.*?)\n```', replace_code_block, html, flags=re.DOTALL)
 
         # 内联代码
-        inline_code_fs = max(12, fs - 2)
-        html = re.sub(r'`([^`]+)`', rf'<span style="background:#E8E8E8; color:#D63384; padding:2px 6px; border-radius:4px; font-family:Consolas,monospace; font-size:{inline_code_fs}px;">\1</span>', html)
+        html = re.sub(r'`([^`]+)`', r'<code>\1</code>', html)
 
         # 粗体和斜体
-        html = re.sub(r'\*\*(.+?)\*\*', r'<b style="font-weight:600;">\1</b>', html)
+        html = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', html)
         html = re.sub(r'\*(.+?)\*', r'<i>\1</i>', html)
 
         # 标题
-        h1_fs = int(fs * 1.4)
-        h2_fs = int(fs * 1.2)
-        h3_fs = int(fs * 1.1)
-        html = re.sub(r'^###\s+(.+)$', rf'<h4 style="margin:12px 0 8px 0; font-size:{h3_fs}px; font-weight:600;">\1</h4>', html, flags=re.MULTILINE)
-        html = re.sub(r'^##\s+(.+)$', rf'<h3 style="margin:14px 0 8px 0; font-size:{h2_fs}px; font-weight:600;">\1</h3>', html, flags=re.MULTILINE)
-        html = re.sub(r'^#\s+(.+)$', rf'<h2 style="margin:16px 0 10px 0; font-size:{h1_fs}px; font-weight:600;">\1</h2>', html, flags=re.MULTILINE)
+        html = re.sub(r'^###\s+(.+)$', r'<h3>\1</h3>', html, flags=re.MULTILINE)
+        html = re.sub(r'^##\s+(.+)$', r'<h2>\1</h2>', html, flags=re.MULTILINE)
+        html = re.sub(r'^#\s+(.+)$', r'<h1>\1</h1>', html, flags=re.MULTILINE)
 
-        # 无序列表
+        # 列表
         lines = html.split('\n')
-        in_list = False
         result_lines = []
+        in_list = False
         for line in lines:
             stripped = line.strip()
             if stripped.startswith('- ') or stripped.startswith('* '):
                 if not in_list:
-                    result_lines.append('<ul style="margin:8px 0; padding-left:24px; list-style-type:disc;">')
+                    result_lines.append('<ul>')
                     in_list = True
-                result_lines.append(f'<li style="margin:4px 0; line-height:1.6;">{stripped[2:]}</li>')
+                result_lines.append(f'<li>{stripped[2:]}</li>')
             else:
                 if in_list:
                     result_lines.append('</ul>')
@@ -957,26 +993,7 @@ class AIAssistant(QWidget):
         if in_list:
             result_lines.append('</ul>')
 
-        # 有序列表
-        final_lines = []
-        in_ordered_list = False
-        for line in result_lines:
-            stripped = line.strip()
-            match = re.match(r'^(\d+)\.\s+(.+)$', stripped)
-            if match:
-                if not in_ordered_list:
-                    final_lines.append('<ol style="margin:8px 0; padding-left:24px;">')
-                    in_ordered_list = True
-                final_lines.append(f'<li style="margin:4px 0; line-height:1.6;">{match.group(2)}</li>')
-            else:
-                if in_ordered_list:
-                    final_lines.append('</ol>')
-                    in_ordered_list = False
-                final_lines.append(line)
-        if in_ordered_list:
-            final_lines.append('</ol>')
-
-        html = '\n'.join(final_lines)
+        html = '\n'.join(result_lines)
         html = html.replace('\n', '<br>')
         return html
 
