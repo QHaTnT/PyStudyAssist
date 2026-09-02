@@ -166,13 +166,18 @@ class AIAssistant(QWidget):
         self._resize_edge = None
         self._resize_start_pos = None
         self._resize_start_geometry = None
-        self._RESIZE_MARGIN = 8
+        self._RESIZE_MARGIN = 40  # 右上角检测区域（增大）
 
         # 节流定时器
         self._update_timer = QTimer(self)
         self._update_timer.setSingleShot(True)
         self._update_timer.timeout.connect(self._do_update_display)
         self._pending_update = False
+
+        # 光标检查定时器（每50ms检查一次鼠标位置）
+        self._cursor_timer = QTimer(self)
+        self._cursor_timer.timeout.connect(self._check_cursor_position)
+        self._cursor_timer.start(50)
 
         self._build_ui()
         self._apply_palette()
@@ -207,6 +212,8 @@ class AIAssistant(QWidget):
         self.panel.setMinimumSize(300, 400)  # 最小尺寸
         self.panel.resize(self.PANEL_WIDTH, self.PANEL_HEIGHT)  # 初始尺寸
         self.panel.setVisible(False)
+        self.panel.setMouseTracking(True)
+        self.panel.installEventFilter(self)
 
         panel_layout = QVBoxLayout(self.panel)
         panel_layout.setContentsMargins(0, 0, 0, 0)
@@ -497,6 +504,20 @@ class AIAssistant(QWidget):
                 self.main_button.setCursor(Qt.OpenHandCursor)
                 self.drag_offset = None
                 return False
+
+        # 处理面板上的鼠标移动 - 更新光标
+        if hasattr(self, 'panel') and obj == self.panel and self.expanded:
+            if event.type() == QEvent.MouseMove:
+                # 将全局坐标转换为相对于 AIAssistant 的坐标
+                pos = self.mapFromGlobal(event.globalPos())
+                edge = self._get_resize_edge(pos)
+                if edge:
+                    # 设置光标到面板上（因为鼠标在面板上）
+                    self.panel.setCursor(Qt.SizeBDiagCursor)
+                else:
+                    self.panel.setCursor(Qt.ArrowCursor)
+                return False
+
         return super().eventFilter(obj, event)
 
     def mousePressEvent(self, event):
@@ -585,6 +606,27 @@ class AIAssistant(QWidget):
         self._resize_start_geometry = None
         if self.expanded:
             self.setCursor(Qt.ArrowCursor)
+
+    def leaveEvent(self, event):
+        """鼠标离开控件时恢复光标"""
+        if self.expanded:
+            self.setCursor(Qt.ArrowCursor)
+
+    def _check_cursor_position(self):
+        """定时检查鼠标位置，更新光标样式"""
+        if not self.expanded:
+            return
+
+        # 获取鼠标相对于当前控件的位置
+        cursor_pos = self.mapFromGlobal(self.cursor().pos())
+        edge = self._get_resize_edge(cursor_pos)
+
+        if edge:
+            self.setCursor(Qt.SizeBDiagCursor)
+        else:
+            # 检查鼠标是否在控件内
+            if self.rect().contains(cursor_pos):
+                self.setCursor(Qt.ArrowCursor)
 
     # ==================== 上下文感知 ====================
 
@@ -805,34 +847,13 @@ class AIAssistant(QWidget):
         self._rebuild_chat()
 
     def _update_last_message(self, content):
-        """更新最后一条 AI 消息（仅更新最后一条，不重建全部）"""
+        """更新最后一条 AI 消息"""
         if not self._messages or self._messages[-1]['role'] != 'assistant':
             return
 
         self._messages[-1]['content'] = content
-
-        # 保存滚动位置
-        scrollbar = self.chat_area.verticalScrollBar()
-        was_at_bottom = scrollbar.value() >= scrollbar.maximum() - 10
-
-        # 使用光标定位到最后一条消息并替换
-        cursor = self.chat_area.textCursor()
-        cursor.movePosition(cursor.End)
-
-        # 选中最后一个 block（最后一条消息）
-        cursor.movePosition(cursor.StartOfBlock, cursor.KeepAnchor)
-        cursor.movePosition(cursor.End, cursor.KeepAnchor)
-
-        # 删除旧内容，插入新内容
-        cursor.removeSelectedText()
-        fs = self._current_font_size
-        formatted = self._markdown_to_html(content)
-        html = f"<div style='margin:8px 0;'><span style='background:#F1F5F9; padding:10px 14px; border-radius:12px 12px 12px 2px; display:inline-block; max-width:85%; font-size:{fs}px; line-height:1.5;'>{formatted}</span></div>"
-        cursor.insertHtml(html)
-
-        # 滚动到底部
-        if was_at_bottom:
-            scrollbar.setValue(scrollbar.maximum())
+        # 使用全量重建（有节流机制，不会卡顿）
+        self._rebuild_chat()
 
     def _replace_last_message(self, content):
         """替换最后一条消息"""
@@ -866,7 +887,8 @@ class AIAssistant(QWidget):
             html = f"<div style='text-align:right; margin:8px 0;'><span style='background:#2563EB; color:white; padding:10px 14px; border-radius:12px 12px 2px 12px; display:inline-block; max-width:80%; font-size:{fs}px; line-height:1.5;'>{content}</span></div>"
         else:
             formatted = self._markdown_to_html(content)
-            html = f"<div style='margin:8px 0;'><span style='background:#F1F5F9; padding:10px 14px; border-radius:12px 12px 12px 2px; display:inline-block; max-width:85%; font-size:{fs}px; line-height:1.5;'>{formatted}</span></div>"
+            # AI 消息使用深色文字确保可读性
+            html = f"<div style='margin:8px 0;'><span style='background:#F1F5F9; color:#1E293B; padding:10px 14px; border-radius:12px 12px 12px 2px; display:inline-block; max-width:85%; font-size:{fs}px; line-height:1.5;'>{formatted}</span></div>"
         self.chat_area.append(html)
 
     def _clear_conversation(self):
@@ -876,21 +898,33 @@ class AIAssistant(QWidget):
         self._append_message("assistant", "对话已清空，请问有什么可以帮助你的？")
 
     def _markdown_to_html(self, text):
+        """将 Markdown 转换为 HTML，支持更多语法"""
         import re
         html = text
 
+        # 代码块
         def replace_code_block(match):
+            lang = match.group(1) or ''
             code = match.group(2)
             code = code.replace('<', '&lt;').replace('>', '&gt;')
-            return f'<pre style="background:#1E293B; color:#E2E8F0; padding:12px; border-radius:8px; margin:8px 0; overflow-x:auto;"><code>{code}</code></pre>'
+            lang_label = f'<div style="background:#1E1E1E; color:#888; padding:8px 16px; border-radius:8px 8px 0 0; font-size:12px;">{lang}</div>' if lang else ''
+            return f'{lang_label}<div style="background:#2D2D2D; color:#E0E0E0; padding:12px 16px; border-radius:0 0 8px 8px; margin:0 0 8px 0; font-family:Consolas,monospace; font-size:14px; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">{code}</div>'
 
         html = re.sub(r'```(\w*)\n(.*?)\n```', replace_code_block, html, flags=re.DOTALL)
-        html = re.sub(r'`([^`]+)`', r'<code style="background:#E2E8F0; padding:2px 6px; border-radius:4px; font-family:Consolas,monospace;">\1</code>', html)
-        html = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', html)
-        html = re.sub(r'^###\s+(.+)$', r'<h4 style="margin:12px 0 6px 0;">\1</h4>', html, flags=re.MULTILINE)
-        html = re.sub(r'^##\s+(.+)$', r'<h3 style="margin:14px 0 7px 0;">\1</h3>', html, flags=re.MULTILINE)
-        html = re.sub(r'^#\s+(.+)$', r'<h2 style="margin:16px 0 8px 0;">\1</h2>', html, flags=re.MULTILINE)
 
+        # 内联代码
+        html = re.sub(r'`([^`]+)`', r'<span style="background:#E8E8E8; color:#D63384; padding:2px 6px; border-radius:4px; font-family:Consolas,monospace; font-size:0.9em;">\1</span>', html)
+
+        # 粗体和斜体
+        html = re.sub(r'\*\*(.+?)\*\*', r'<b style="font-weight:600;">\1</b>', html)
+        html = re.sub(r'\*(.+?)\*', r'<i>\1</i>', html)
+
+        # 标题
+        html = re.sub(r'^###\s+(.+)$', r'<h4 style="margin:12px 0 8px 0; font-size:1.1em; font-weight:600;">\1</h4>', html, flags=re.MULTILINE)
+        html = re.sub(r'^##\s+(.+)$', r'<h3 style="margin:14px 0 8px 0; font-size:1.2em; font-weight:600;">\1</h3>', html, flags=re.MULTILINE)
+        html = re.sub(r'^#\s+(.+)$', r'<h2 style="margin:16px 0 10px 0; font-size:1.4em; font-weight:600;">\1</h2>', html, flags=re.MULTILINE)
+
+        # 无序列表
         lines = html.split('\n')
         in_list = False
         result_lines = []
@@ -898,9 +932,9 @@ class AIAssistant(QWidget):
             stripped = line.strip()
             if stripped.startswith('- ') or stripped.startswith('* '):
                 if not in_list:
-                    result_lines.append('<ul style="margin:8px 0; padding-left:20px;">')
+                    result_lines.append('<ul style="margin:8px 0; padding-left:24px; list-style-type:disc;">')
                     in_list = True
-                result_lines.append(f'<li style="margin:4px 0;">{stripped[2:]}</li>')
+                result_lines.append(f'<li style="margin:4px 0; line-height:1.6;">{stripped[2:]}</li>')
             else:
                 if in_list:
                     result_lines.append('</ul>')
@@ -908,7 +942,27 @@ class AIAssistant(QWidget):
                 result_lines.append(line)
         if in_list:
             result_lines.append('</ul>')
-        html = '\n'.join(result_lines)
+
+        # 有序列表
+        final_lines = []
+        in_ordered_list = False
+        for line in result_lines:
+            stripped = line.strip()
+            match = re.match(r'^(\d+)\.\s+(.+)$', stripped)
+            if match:
+                if not in_ordered_list:
+                    final_lines.append('<ol style="margin:8px 0; padding-left:24px;">')
+                    in_ordered_list = True
+                final_lines.append(f'<li style="margin:4px 0; line-height:1.6;">{match.group(2)}</li>')
+            else:
+                if in_ordered_list:
+                    final_lines.append('</ol>')
+                    in_ordered_list = False
+                final_lines.append(line)
+        if in_ordered_list:
+            final_lines.append('</ol>')
+
+        html = '\n'.join(final_lines)
         html = html.replace('\n', '<br>')
         return html
 
