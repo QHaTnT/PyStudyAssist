@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 模拟考试模块
-提供PTA风格的考试功能，支持多测试点编程题
+提供PTA风格的考试功能，支持多测试点编程题并发验证
 """
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QListWidget, QListWidgetItem, QTextEdit,
@@ -12,6 +12,7 @@ from PyQt5.QtCore import Qt, QTimer, QDateTime
 from PyQt5.QtGui import QFont, QColor
 from config import THEME_COLORS
 from database.db_manager import DatabaseManager
+from utils.code_executor import CodeExecutor
 import json
 import time
 
@@ -802,7 +803,7 @@ class ExamWidget(QWidget):
             self.db.disconnect()
 
     def grade_coding_question_internal(self, question, user_code):
-        """编程题判题（内部方法，假设数据库已连接）"""
+        """编程题判题（PTA风格并发验证）"""
         # 获取测试点
         result = self.db.execute_query(
             'SELECT * FROM test_cases WHERE question_id = ? ORDER BY order_num',
@@ -814,15 +815,47 @@ class ExamWidget(QWidget):
             # 没有测试点，使用标准答案比对
             return question['score'] if user_code.strip() == question['answer'].strip() else 0
 
-        # 运行测试点
+        # 使用 PTA 风格并发验证
+        executor = CodeExecutor()
+        test_case_list = [
+            {
+                'input': tc.get('input_data', ''),
+                'expected': tc.get('expected_output', ''),
+                'score': tc.get('score', 1)
+            }
+            for tc in test_cases
+        ]
+
+        # 同步执行所有测试点（并发）
         passed_count = 0
         total_score = 0
 
-        for test_case in test_cases:
-            passed = self.run_test_case(user_code, test_case)
-            if passed:
-                passed_count += 1
-                total_score += test_case['score']
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        with ThreadPoolExecutor(max_workers=min(len(test_cases), 5)) as thread_executor:
+            futures = {}
+            for i, tc in enumerate(test_cases):
+                future = thread_executor.submit(
+                    executor.execute,
+                    f"import sys\nfrom io import StringIO\nsys.stdin = StringIO('''{tc.get('input_data', '')}''')\n{user_code}"
+                )
+                futures[future] = i
+
+            results = {}
+            for future in as_completed(futures):
+                idx = futures[future]
+                try:
+                    success, output, error = future.result()
+                    expected = test_cases[idx].get('expected_output', '').strip()
+                    actual = output.strip() if success else ''
+                    passed = (actual == expected) and success
+                except:
+                    passed = False
+
+                results[idx] = passed
+                if passed:
+                    passed_count += 1
+                    total_score += test_cases[idx].get('score', 1)
 
         # 更新答题记录的测试点信息
         self.db.cursor.execute('''

@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
 代码编辑器模块
-提供Python代码编写和执行功能
+提供Python代码编写和执行功能（多线程异步执行）
 """
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
                              QTextEdit, QGroupBox, QMessageBox, QFileDialog, QSplitter)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
-from utils.code_executor import CodeExecutor
+from utils.code_executor import CodeExecutor, CodeExecutionThread
 from config import EDITOR_CONFIG, THEME_COLORS
 import os
 
@@ -21,6 +21,7 @@ class EditorWidget(QWidget):
         self.current_user = user
         self.code_executor = CodeExecutor(timeout=EDITOR_CONFIG['timeout'])
         self.current_file = None
+        self.exec_thread = None  # 代码执行线程引用
         self.init_ui()
 
     def init_ui(self):
@@ -219,15 +220,21 @@ class EditorWidget(QWidget):
                 QMessageBox.critical(self, '错误', f'保存文件失败: {str(e)}')
 
     def run_code(self):
-        """运行代码"""
+        """运行代码（多线程异步执行）"""
         code = self.code_editor.toPlainText().strip()
 
         if not code:
             QMessageBox.warning(self, '提示', '请先输入代码！')
             return
 
-        self.output_text.append('\n' + '='*50)
-        self.output_text.append('开始执行代码...')
+        # 如果有正在执行的代码，先停止
+        if self.exec_thread and self.exec_thread.isRunning():
+            self.exec_thread.stop()
+            self.output_text.append('⚠️ 已停止之前的执行')
+
+        self.output_text.clear()
+        self.output_text.append('='*50)
+        self.output_text.append('⏳ 正在执行代码...')
         self.output_text.append('='*50 + '\n')
 
         # 验证语法
@@ -236,21 +243,28 @@ class EditorWidget(QWidget):
             self.output_text.append(f'❌ 语法错误:\n{error}')
             return
 
-        # 执行代码
-        success, output, error = self.code_executor.execute(code)
+        # 使用多线程执行代码
+        self.exec_thread = CodeExecutionThread(code, timeout=EDITOR_CONFIG['timeout'])
+        self.exec_thread.finished.connect(self._on_code_finished)
+        self.exec_thread.start()
+
+    def _on_code_finished(self, success, output, error):
+        """代码执行完成回调"""
+        self.output_text.clear()
+        self.output_text.append('='*50)
 
         if success:
-            self.output_text.append('✓ 执行成功:')
+            self.output_text.append('✅ 执行成功:')
             if output:
                 self.output_text.append(output)
             else:
                 self.output_text.append('(无输出)')
         else:
-            self.output_text.append(f'❌ 执行错误:\n{error}')
+            self.output_text.append(f'❌ 执行失败:\n{error}')
 
         self.output_text.append('\n' + '='*50)
         self.output_text.append('执行完成')
-        self.output_text.append('='*50 + '\n')
+        self.output_text.append('='*50)
 
     def clear_editor(self):
         """清空编辑器"""

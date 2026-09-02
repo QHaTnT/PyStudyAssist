@@ -1,49 +1,60 @@
 # -*- coding: utf-8 -*-
-"""PyPalPrep 入口文件"""
+"""
+PyStudyAssist 入口文件
+"""
 import sys
-from PyQt5.QtWidgets import QApplication
-from PyQt5.QtGui import QFont
-from ui.main_window import MainWindow
-from ui.launch_overlay_clean_login import LaunchOverlay
-from models.user import User
-
-
-def create_app():
-    """创建并配置 QApplication 实例"""
-    app = QApplication(sys.argv)
-    font = QFont()
-    font.setFamily("SF Pro Display, PingFang SC, Segoe UI, Microsoft YaHei")
-    font.setPointSize(10)
-    app.setFont(font)
-    app.setApplicationName("Python学习教辅系统")
-    app.setApplicationVersion("1.0.0")
-    app.setOrganizationName("Python Learning Assistant")
-    return app
-
-
-def launch_main_window(username: str, password: str):
-    """登录完成后启动主窗口（此处仍使用简化的默认用户）"""
-    app = QApplication.instance()
-    if app is None:
-        raise RuntimeError("QApplication 未初始化")
-
-    user = User(user_id=1, username=username, nickname=username)
-    main_window = MainWindow(user)
-    app._main_window = main_window
-    main_window.show()
-    main_window.raise_()
-    main_window.activateWindow()
+import traceback
 
 
 def run():
     """启动应用"""
-    app = create_app()
+    try:
+        from PyQt5.QtWidgets import QApplication, QMessageBox
+        from PyQt5.QtGui import QFont
+        from core.services.auth_service import auth_service
+        from models.user import User
 
-    overlay = LaunchOverlay()
-    overlay.finished.connect(launch_main_window)
-    overlay.showFullScreen()
+        app = QApplication(sys.argv)
+        app.setFont(QFont("Microsoft YaHei", 13))
+        app.setApplicationName("PyStudyAssist")
 
-    sys.exit(app.exec_())
+        def on_login_success(username, password):
+            try:
+                user = auth_service.get_current_user()
+                if user:
+                    # 启动数据同步
+                    from core.database.sync_manager import sync_manager
+                    sync_manager.startup_sync()
+                    sync_manager.start_auto_sync()
+
+                    from ui.windows.main_window import MainWindow
+                    window = MainWindow(user)
+                    app._main_window = window
+                    window.show()
+            except Exception as e:
+                QMessageBox.critical(None, '错误', f'启动主窗口失败:\n{str(e)}')
+                traceback.print_exc()
+
+        from ui.windows.login_window import LoginWindow
+        login_window = LoginWindow()
+        login_window.finished.connect(on_login_success)
+        login_window.show()
+
+        sys.exit(app.exec_())
+
+    except ImportError as e:
+        print(f"\n[错误] 导入模块失败: {e}")
+        print("\n请检查是否安装了所有依赖:")
+        print("  pip install PyQt5 sqlalchemy pymysql requests bcrypt pillow")
+        input("\n按 Enter 键退出...")
+        sys.exit(1)
+
+    except Exception as e:
+        print(f"\n[错误] 程序启动失败: {e}")
+        print("\n详细错误信息:")
+        traceback.print_exc()
+        input("\n按 Enter 键退出...")
+        sys.exit(1)
 
 
 if __name__ == '__main__':
