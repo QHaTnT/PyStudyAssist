@@ -228,12 +228,14 @@ class AIAssistant(QWidget):
         title.setFont(QFont("Microsoft YaHei", 18, QFont.Bold))
 
         clear_btn = QPushButton("清空")
-        clear_btn.setFixedSize(50, 36)
+        clear_btn.setFixedSize(60, 36)
+        clear_btn.setFont(QFont("Microsoft YaHei", 14))
         clear_btn.setToolTip("清空对话")
         clear_btn.clicked.connect(self._clear_conversation)
 
         close_btn = QPushButton("✕")
         close_btn.setFixedSize(36, 36)
+        close_btn.setFont(QFont("Microsoft YaHei", 16))
         close_btn.clicked.connect(self.toggle)
 
         header.addWidget(title)
@@ -262,20 +264,19 @@ class AIAssistant(QWidget):
         # ===== 快捷按钮区 =====
         quick_frame = QFrame()
         quick_layout = QHBoxLayout(quick_frame)
-        quick_layout.setContentsMargins(12, 6, 12, 6)
-        quick_layout.setSpacing(8)
+        quick_layout.setContentsMargins(12, 8, 12, 8)
+        quick_layout.setSpacing(10)
 
-        diagnose_btn = QPushButton("诊断代码")
-        diagnose_btn.setFixedHeight(32)
+        diagnose_btn = QPushButton("🔍 诊断代码")
+        diagnose_btn.setFixedHeight(36)
+        diagnose_btn.setFont(QFont("Microsoft YaHei", 14))
         diagnose_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {COLORS['danger']};
                 color: white;
                 border: none;
-                border-radius: 4px;
-                padding: 4px 12px;
-                font-size: 13px;
-                font-weight: bold;
+                border-radius: 6px;
+                padding: 6px 14px;
             }}
             QPushButton:hover {{ background: #DC2626; }}
         """)
@@ -288,14 +289,14 @@ class AIAssistant(QWidget):
         from PyQt5.QtWidgets import QCheckBox
         self.context_checkbox = QCheckBox("加入屏幕内容")
         self.context_checkbox.setToolTip("勾选后，AI会自动识别你当前学习的知识点或练习的题目")
+        self.context_checkbox.setFont(QFont("Microsoft YaHei", 13))
         self.context_checkbox.setStyleSheet(f"""
             QCheckBox {{
-                font-size: 12px;
                 color: {COLORS['text_secondary']};
             }}
             QCheckBox::indicator {{
-                width: 14px;
-                height: 14px;
+                width: 18px;
+                height: 18px;
             }}
         """)
         quick_layout.addWidget(self.context_checkbox)
@@ -470,10 +471,12 @@ class AIAssistant(QWidget):
         # 根据面板宽度计算字体大小
         if self.expanded and self.width() > 100:
             scale = self.width() / self.PANEL_WIDTH
-            new_size = max(13, int(self._base_font_size * scale))
+            new_size = max(14, int(self._base_font_size * scale))
             if new_size != self._current_font_size:
                 self._current_font_size = new_size
                 self._rebuild_chat()
+                # 缩放后滚动到底部
+                QTimer.singleShot(50, self._scroll_to_bottom)
 
     def eventFilter(self, obj, event):
         """事件过滤器 - 处理输入框回车、按钮拖拽"""
@@ -878,7 +881,12 @@ class AIAssistant(QWidget):
             self._render_message(msg['role'], msg['content'])
 
         if was_at_bottom:
-            scrollbar.setValue(scrollbar.maximum())
+            self._scroll_to_bottom()
+
+    def _scroll_to_bottom(self):
+        """滚动到底部"""
+        scrollbar = self.chat_area.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
 
     def _render_message(self, role, content):
         """渲染单条消息到聊天区（不更新列表）"""
@@ -901,28 +909,34 @@ class AIAssistant(QWidget):
         """将 Markdown 转换为 HTML，支持更多语法"""
         import re
         html = text
+        fs = self._current_font_size
+        code_fs = max(13, fs - 1)  # 代码字体略小于正文
 
         # 代码块
         def replace_code_block(match):
             lang = match.group(1) or ''
             code = match.group(2)
             code = code.replace('<', '&lt;').replace('>', '&gt;')
-            lang_label = f'<div style="background:#1E1E1E; color:#888; padding:8px 16px; border-radius:8px 8px 0 0; font-size:12px;">{lang}</div>' if lang else ''
-            return f'{lang_label}<div style="background:#2D2D2D; color:#E0E0E0; padding:12px 16px; border-radius:0 0 8px 8px; margin:0 0 8px 0; font-family:Consolas,monospace; font-size:14px; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">{code}</div>'
+            lang_label = f'<div style="background:#1E1E1E; color:#888; padding:8px 16px; border-radius:8px 8px 0 0; font-size:{code_fs}px;">{lang}</div>' if lang else ''
+            return f'{lang_label}<div style="background:#2D2D2D; color:#E0E0E0; padding:12px 16px; border-radius:0 0 8px 8px; margin:0 0 8px 0; font-family:Consolas,monospace; font-size:{code_fs}px; line-height:1.6; overflow-x:auto; white-space:pre-wrap;">{code}</div>'
 
         html = re.sub(r'```(\w*)\n(.*?)\n```', replace_code_block, html, flags=re.DOTALL)
 
         # 内联代码
-        html = re.sub(r'`([^`]+)`', r'<span style="background:#E8E8E8; color:#D63384; padding:2px 6px; border-radius:4px; font-family:Consolas,monospace; font-size:0.9em;">\1</span>', html)
+        inline_code_fs = max(12, fs - 2)
+        html = re.sub(r'`([^`]+)`', rf'<span style="background:#E8E8E8; color:#D63384; padding:2px 6px; border-radius:4px; font-family:Consolas,monospace; font-size:{inline_code_fs}px;">\1</span>', html)
 
         # 粗体和斜体
         html = re.sub(r'\*\*(.+?)\*\*', r'<b style="font-weight:600;">\1</b>', html)
         html = re.sub(r'\*(.+?)\*', r'<i>\1</i>', html)
 
         # 标题
-        html = re.sub(r'^###\s+(.+)$', r'<h4 style="margin:12px 0 8px 0; font-size:1.1em; font-weight:600;">\1</h4>', html, flags=re.MULTILINE)
-        html = re.sub(r'^##\s+(.+)$', r'<h3 style="margin:14px 0 8px 0; font-size:1.2em; font-weight:600;">\1</h3>', html, flags=re.MULTILINE)
-        html = re.sub(r'^#\s+(.+)$', r'<h2 style="margin:16px 0 10px 0; font-size:1.4em; font-weight:600;">\1</h2>', html, flags=re.MULTILINE)
+        h1_fs = int(fs * 1.4)
+        h2_fs = int(fs * 1.2)
+        h3_fs = int(fs * 1.1)
+        html = re.sub(r'^###\s+(.+)$', rf'<h4 style="margin:12px 0 8px 0; font-size:{h3_fs}px; font-weight:600;">\1</h4>', html, flags=re.MULTILINE)
+        html = re.sub(r'^##\s+(.+)$', rf'<h3 style="margin:14px 0 8px 0; font-size:{h2_fs}px; font-weight:600;">\1</h3>', html, flags=re.MULTILINE)
+        html = re.sub(r'^#\s+(.+)$', rf'<h2 style="margin:16px 0 10px 0; font-size:{h1_fs}px; font-weight:600;">\1</h2>', html, flags=re.MULTILINE)
 
         # 无序列表
         lines = html.split('\n')
