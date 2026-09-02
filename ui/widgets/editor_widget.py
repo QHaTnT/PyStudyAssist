@@ -6,8 +6,9 @@
 from PyQt5.QtWidgets import (
     QPushButton,
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QTextEdit, QFrame, QMessageBox, QFileDialog, QSplitter
+    QTextEdit, QFrame, QFileDialog, QSplitter
 )
+from ui.styles.message_box import show_info, show_warning, show_error, ask_question
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QFont
 from utils.code_executor import CodeExecutor, CodeExecutionThread
@@ -130,11 +131,7 @@ class EditorWidget(QWidget):
 
     def _new_file(self):
         if self.code_editor.toPlainText().strip():
-            reply = QMessageBox.question(
-                self, '确认', '当前文件未保存，是否继续？',
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
-            )
-            if reply == QMessageBox.No:
+            if not ask_question(self, '确认', '当前文件未保存，是否继续？'):
                 return
         self.code_editor.clear()
         self.output_text.clear()
@@ -146,8 +143,21 @@ class EditorWidget(QWidget):
             self, '打开 Python 文件', '', 'Python Files (*.py);;All Files (*.*)'
         )
         if path:
-            with open(path, 'r', encoding='utf-8') as f:
-                self.code_editor.setPlainText(f.read())
+            try:
+                # 尝试 UTF-8 编码
+                with open(path, 'r', encoding='utf-8') as f:
+                    self.code_editor.setPlainText(f.read())
+            except UnicodeDecodeError:
+                # 如果 UTF-8 失败，尝试 GBK
+                try:
+                    with open(path, 'r', encoding='gbk') as f:
+                        self.code_editor.setPlainText(f.read())
+                except Exception as e:
+                    show_error(self, '错误', f'无法读取文件: {str(e)}')
+                    return
+            except Exception as e:
+                show_error(self, '错误', f'无法打开文件: {str(e)}')
+                return
             self.current_file = path
             self.file_label.setText(os.path.basename(path))
 
@@ -159,17 +169,20 @@ class EditorWidget(QWidget):
                 self, '保存 Python 文件', '', 'Python Files (*.py);;All Files (*.*)'
             )
         if path:
-            with open(path, 'w', encoding='utf-8') as f:
-                f.write(self.code_editor.toPlainText())
-            self.current_file = path
-            self.file_label.setText(os.path.basename(path))
-            QMessageBox.information(self, '成功', '文件保存成功')
+            try:
+                with open(path, 'w', encoding='utf-8') as f:
+                    f.write(self.code_editor.toPlainText())
+                self.current_file = path
+                self.file_label.setText(os.path.basename(path))
+                show_info(self, '成功', '文件保存成功')
+            except Exception as e:
+                show_error(self, '错误', f'保存文件失败: {str(e)}')
 
     def _run_code(self):
         """使用 QThread 异步执行代码"""
         code = self.code_editor.toPlainText().strip()
         if not code:
-            QMessageBox.warning(self, '提示', '请先输入代码')
+            show_warning(self, '提示', '请先输入代码')
             return
 
         # 停止之前的执行

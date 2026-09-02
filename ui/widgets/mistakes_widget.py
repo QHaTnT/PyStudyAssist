@@ -6,10 +6,11 @@
 from PyQt5.QtWidgets import (
     QPushButton,
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QListWidget, QTextEdit, QMessageBox,
+    QListWidget, QTextEdit,
     QFrame, QProgressBar, QListWidgetItem,
     QLineEdit, QRadioButton, QButtonGroup
 )
+from ui.styles.message_box import show_info, show_warning
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QFont
 from core.services.data_service import data_service
@@ -92,6 +93,7 @@ class MistakesWidget(QWidget):
         self.question_text = QTextEdit()
         self.question_text.setReadOnly(True)
         self.question_text.setFont(QFont("Microsoft YaHei", 18))
+        self.question_text.setPlaceholderText("点击左侧「开始复习」按钮开始复习错题")
         self.question_text.setStyleSheet(f"""
             QTextEdit {{
                 background: transparent;
@@ -173,7 +175,7 @@ class MistakesWidget(QWidget):
         """开始复习"""
         self.wrong_questions = data_service.get_user_wrong_questions(self.current_user.id)
         if not self.wrong_questions:
-            QMessageBox.information(self, '提示', '没有错题，继续加油！')
+            show_info(self, '提示', '没有错题，继续加油！')
             return
 
         self.review_mode = True
@@ -183,7 +185,7 @@ class MistakesWidget(QWidget):
     def _show_question(self):
         """显示当前题目"""
         if not self.wrong_questions or self.current_index >= len(self.wrong_questions):
-            QMessageBox.information(self, '复习完成', '所有错题已复习完成！')
+            show_info(self, '复习完成', '所有错题已复习完成！')
             self.review_mode = False
             return
 
@@ -344,7 +346,7 @@ class MistakesWidget(QWidget):
         """提交答案"""
         answer = self._get_answer()
         if not answer:
-            QMessageBox.warning(self, '提示', '请先作答！')
+            show_warning(self, '提示', '请先作答！')
             return
 
         q = self.current_question
@@ -368,7 +370,8 @@ class MistakesWidget(QWidget):
             self.result_label.setText("✓ 回答正确！已从错题本移除")
             self.result_label.setStyleSheet(f"color: {COLORS['success']}; background: transparent; padding: 8px;")
             # 正确则移出错题本
-            data_service.mark_wrong_question_mastered(self.current_user.id, q['question_id'])
+            question_id = q.get('question_id') or q.get('id')
+            data_service.mark_wrong_question_mastered(self.current_user.id, question_id)
             self.wrong_questions.pop(self.current_index)
             if self.current_index >= len(self.wrong_questions):
                 self.current_index = max(0, len(self.wrong_questions) - 1)
@@ -392,7 +395,7 @@ class MistakesWidget(QWidget):
     def _next_or_finish(self):
         """跳转下一题或结束"""
         if self.current_index >= len(self.wrong_questions):
-            QMessageBox.information(self, '复习完成', '所有错题已复习完成！')
+            show_info(self, '复习完成', '所有错题已复习完成！')
             self.review_mode = False
             self._clear_answer_area()
             self.question_text.clear()
@@ -403,11 +406,14 @@ class MistakesWidget(QWidget):
 
     def _next_question(self):
         """下一题"""
+        if not self.wrong_questions:
+            show_info(self, '提示', '请先点击「开始复习」')
+            return
         if self.current_index < len(self.wrong_questions) - 1:
             self.current_index += 1
             self._show_question()
         else:
-            QMessageBox.information(self, '提示', '已经是最后一题了')
+            show_info(self, '提示', '已经是最后一题了')
 
     def refresh(self):
         """刷新数据"""

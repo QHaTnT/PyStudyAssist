@@ -4,9 +4,9 @@
 """
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QStackedWidget, QLabel, QPushButton, QFrame,
-    QMessageBox, QGridLayout
+    QStackedWidget, QLabel, QPushButton, QFrame, QGridLayout
 )
+from ui.styles.message_box import ask_question
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont, QColor, QPainter, QBrush, QLinearGradient
 from config import config
@@ -186,15 +186,15 @@ class HomePage(QWidget):
 
         updates = {
             "total_study_time": f"{hours}小时{minutes}分钟" if hours > 0 else f"{minutes}分钟",
-            "completed_knowledge": str(stats.get('completed_knowledge', 0)),
-            "total_questions": str(stats.get('total_questions', 0)),
-            "wrong_questions_count": str(stats.get('wrong_questions_count', 0)),
+            "completed_knowledge": f"{stats.get('completed_knowledge', 0)} 个",
+            "total_questions": f"{stats.get('total_questions', 0)} 道",
+            "wrong_questions_count": f"{stats.get('wrong_questions_count', 0)} 道",
         }
 
         for key, value in updates.items():
             if key in self._stat_labels:
-                label, unit = self._stat_labels[key]
-                label.setText(f"{value} {unit}")
+                label, _ = self._stat_labels[key]
+                label.setText(value)
 
 
 class ModulePage(QWidget):
@@ -351,13 +351,7 @@ class MainWindow(QMainWindow):
             self.home_page.refresh()
 
     def closeEvent(self, event):
-        reply = QMessageBox.question(
-            self, '确认退出',
-            '确定退出 PyStudyAssist 吗？',
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        if reply == QMessageBox.Yes:
+        if ask_question(self, '确认退出', '确定退出 PyStudyAssist 吗？'):
             auth_service.logout()
             event.accept()
         else:

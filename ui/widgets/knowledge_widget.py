@@ -247,9 +247,25 @@ class KnowledgeWidget(QWidget):
             return
         category = self.category_list.item(index).text()
         points = data_service.get_knowledge_by_category(category)
+
+        # 获取已完成的知识点ID
+        from core.database.sqlite_manager import db
+        completed_ids = set()
+        records = db.execute(
+            "SELECT knowledge_id FROM learning_records WHERE user_id = ? AND completed = 1",
+            (self.current_user.id,)
+        )
+        for r in records:
+            completed_ids.add(r['knowledge_id'])
+
         self.knowledge_list.clear()
         for kp in points:
-            item = QListWidgetItem(kp.title)
+            # 标记已完成的知识点
+            if kp.id in completed_ids:
+                title = f"✓ {kp.title}"
+            else:
+                title = kp.title
+            item = QListWidgetItem(title)
             item.setData(Qt.UserRole, kp)
             self.knowledge_list.addItem(item)
 
@@ -285,13 +301,18 @@ class KnowledgeWidget(QWidget):
             study_time
         )
 
-        # 显示美观的提示（而不是 QMessageBox）
+        # 显示美观的提示
         self._show_toast("✓ 已标记为完成！")
 
         self.timer.stop()
         self.start_time = None
         self.time_label.setText('⏱️ 学习时长: 0 秒')
         self._update_progress()
+
+        # 刷新左侧列表，显示完成标记
+        current_cat_index = self.category_list.currentRow()
+        if current_cat_index >= 0:
+            self._on_category_changed(current_cat_index)
 
     def _show_toast(self, message, duration=2000):
         """显示美观的提示框"""

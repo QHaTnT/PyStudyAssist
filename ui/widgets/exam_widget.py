@@ -44,14 +44,14 @@ class ExamWidget(QWidget):
         layout.addWidget(title)
 
         self.tab_widget = QTabWidget()
-        self.tab_widget.setFont(QFont("Microsoft YaHei", 14))
+        self.tab_widget.setFont(QFont("Microsoft YaHei", 16))
         self.tab_widget.setStyleSheet(f"""
             QTabWidget::pane {{ border: none; }}
             QTabBar::tab {{
-                padding: 12px 24px;
+                padding: 14px 28px;
                 border-bottom: 2px solid transparent;
                 color: {COLORS['text_secondary']};
-                font-size: 15px;
+                font-size: 17px;
             }}
             QTabBar::tab:selected {{
                 color: {COLORS['primary']};
@@ -135,11 +135,8 @@ class ExamWidget(QWidget):
         if not self.current_exam:
             return
 
-        reply = QMessageBox.question(
-            self, '确认', f"确定开始「{self.current_exam['name']}」考试？",
-            QMessageBox.Yes | QMessageBox.No
-        )
-        if reply != QMessageBox.Yes:
+        reply = self._show_question_box('确认', f"确定开始「{self.current_exam['name']}」考试？")
+        if not reply:
             return
 
         try:
@@ -155,7 +152,103 @@ class ExamWidget(QWidget):
             self.tab_widget.setCurrentIndex(1)
             self._show_question()
         except Exception as e:
-            QMessageBox.critical(self, '错误', f'开始考试失败: {e}')
+            self._show_error_box('错误', f'开始考试失败: {e}')
+
+    def _show_question_box(self, title, text):
+        """显示带样式的确认对话框"""
+        msg = QMessageBox(self)
+        msg.setWindowTitle(title)
+        msg.setText(text)
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg.setDefaultButton(QMessageBox.No)
+        msg.setStyleSheet("""
+            QMessageBox {
+                background-color: white;
+                font-size: 16px;
+            }
+            QMessageBox QLabel {
+                color: #1E293B;
+                font-size: 16px;
+                min-width: 300px;
+            }
+            QMessageBox QPushButton {
+                background: #2563EB;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 20px;
+                font-size: 14px;
+                min-width: 80px;
+            }
+            QMessageBox QPushButton:hover {
+                background: #1D4ED8;
+            }
+        """)
+        return msg.exec_() == QMessageBox.Yes
+
+    def _show_info_box(self, title, text):
+        """显示带样式的提示对话框"""
+        msg = QMessageBox(self)
+        msg.setWindowTitle(title)
+        msg.setText(text)
+        msg.setIcon(QMessageBox.Information)
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.setStyleSheet("""
+            QMessageBox {
+                background-color: white;
+                font-size: 16px;
+            }
+            QMessageBox QLabel {
+                color: #1E293B;
+                font-size: 16px;
+                min-width: 300px;
+            }
+            QMessageBox QPushButton {
+                background: #2563EB;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 20px;
+                font-size: 14px;
+                min-width: 80px;
+            }
+            QMessageBox QPushButton:hover {
+                background: #1D4ED8;
+            }
+        """)
+        msg.exec_()
+
+    def _show_error_box(self, title, text):
+        """显示带样式的错误对话框"""
+        msg = QMessageBox(self)
+        msg.setWindowTitle(title)
+        msg.setText(text)
+        msg.setIcon(QMessageBox.Critical)
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.setStyleSheet("""
+            QMessageBox {
+                background-color: white;
+                font-size: 16px;
+            }
+            QMessageBox QLabel {
+                color: #1E293B;
+                font-size: 16px;
+                min-width: 300px;
+            }
+            QMessageBox QPushButton {
+                background: #EF4444;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 20px;
+                font-size: 14px;
+                min-width: 80px;
+            }
+            QMessageBox QPushButton:hover {
+                background: #DC2626;
+            }
+        """)
+        msg.exec_()
 
     def _show_question(self):
         if self.current_index >= len(self.questions):
@@ -171,12 +264,13 @@ class ExamWidget(QWidget):
 
         # 题目
         title = QLabel(f"第 {self.current_index + 1} 题 ({q['score']}分)")
-        title.setFont(QFont(*FONTS['subheading']))
+        title.setFont(QFont("Microsoft YaHei", 18, QFont.Bold))
         title.setStyleSheet(f"color: {COLORS['primary']}; background: transparent;")
         self.exam_layout.addWidget(title)
 
         question_text = QLabel(q['question'])
         question_text.setWordWrap(True)
+        question_text.setFont(QFont("Microsoft YaHei", 16))
         question_text.setStyleSheet(f"background: {COLORS['glass_bg']}; padding: 16px; border-radius: 8px;")
         self.exam_layout.addWidget(question_text)
 
@@ -187,15 +281,43 @@ class ExamWidget(QWidget):
             options = json.loads(q['options']) if q['options'] else []
             for i, opt in enumerate(options):
                 radio = QRadioButton(f"{chr(65+i)}. {opt}")
+                radio.setFont(QFont("Microsoft YaHei", 15))
+                radio.setStyleSheet("""
+                    QRadioButton {
+                        padding: 12px 16px;
+                        margin: 4px 0;
+                        border-radius: 8px;
+                    }
+                    QRadioButton:hover {
+                        background: rgba(37, 99, 235, 0.1);
+                    }
+                    QRadioButton::indicator {
+                        width: 20px;
+                        height: 20px;
+                    }
+                """)
                 self.button_group.addButton(radio, i)
                 self.exam_layout.addWidget(radio)
         elif q['type'] == 'judge':
-            true_radio = QRadioButton("正确")
-            false_radio = QRadioButton("错误")
-            self.button_group.addButton(true_radio, 0)
-            self.button_group.addButton(false_radio, 1)
-            self.exam_layout.addWidget(true_radio)
-            self.exam_layout.addWidget(false_radio)
+            for i, text in enumerate(["正确", "错误"]):
+                radio = QRadioButton(text)
+                radio.setFont(QFont("Microsoft YaHei", 15))
+                radio.setStyleSheet("""
+                    QRadioButton {
+                        padding: 12px 16px;
+                        margin: 4px 0;
+                        border-radius: 8px;
+                    }
+                    QRadioButton:hover {
+                        background: rgba(37, 99, 235, 0.1);
+                    }
+                    QRadioButton::indicator {
+                        width: 20px;
+                        height: 20px;
+                    }
+                """)
+                self.button_group.addButton(radio, i)
+                self.exam_layout.addWidget(radio)
 
         # 按钮
         btn_layout = QHBoxLayout()
@@ -248,12 +370,11 @@ class ExamWidget(QWidget):
     def _submit_exam(self):
         self._save_answer()
 
-        reply = QMessageBox.question(
-            self, '确认提交',
-            f'已答 {len(self.answers)}/{len(self.questions)} 题\n确定提交？',
-            QMessageBox.Yes | QMessageBox.No
+        reply = self._show_question_box(
+            '确认提交',
+            f'已答 {len(self.answers)}/{len(self.questions)} 题\n确定提交？'
         )
-        if reply != QMessageBox.Yes:
+        if not reply:
             return
 
         result = exam_service.submit_exam(
@@ -261,7 +382,7 @@ class ExamWidget(QWidget):
         )
 
         msg = f"得分: {result['obtained_score']}/{result['total_score']}\n用时: {result['time_spent']}分钟\n{'及格' if result['passed'] else '不及格'}"
-        QMessageBox.information(self, '考试结果', msg)
+        self._show_info_box('考试结果', msg)
 
         self.tab_widget.setCurrentIndex(2)
         self._load_history()

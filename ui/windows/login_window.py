@@ -5,9 +5,10 @@
 """
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QLineEdit, QPushButton, QMessageBox, QStackedWidget,
+    QLineEdit, QPushButton, QStackedWidget,
     QFrame, QGraphicsDropShadowEffect
 )
+from ui.styles.message_box import show_info, show_warning, show_error
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont, QColor, QPainter, QBrush, QLinearGradient
 from core.services.auth_service import auth_service
@@ -92,7 +93,7 @@ class LoginWindow(QWidget):
 
         # 副标题
         subtitle = QLabel("Python 学习助手")
-        subtitle.setFont(QFont("SF Pro Display", 20))
+        subtitle.setFont(QFont("Microsoft YaHei", 20))
         subtitle.setStyleSheet(f"color: {COLORS['text_secondary']}; background: transparent;")
         left_layout.addWidget(subtitle)
 
@@ -107,7 +108,7 @@ class LoginWindow(QWidget):
         ]
         for feature in features:
             label = QLabel(feature)
-            label.setFont(QFont("SF Pro Display", 14))
+            label.setFont(QFont("Microsoft YaHei", 14))
             label.setStyleSheet(f"color: {COLORS['text_secondary']}; background: transparent; padding: 8px 0;")
             left_layout.addWidget(label)
 
@@ -156,7 +157,7 @@ class LoginWindow(QWidget):
 
         # 标题
         title = QLabel("欢迎回来")
-        title.setFont(QFont("SF Pro Display", 28, QFont.Bold))
+        title.setFont(QFont("Microsoft YaHei", 28, QFont.Bold))
         title.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
         layout.addWidget(title)
 
@@ -272,7 +273,7 @@ class LoginWindow(QWidget):
 
         # 标题
         title = QLabel("创建账号")
-        title.setFont(QFont("SF Pro Display", 28, QFont.Bold))
+        title.setFont(QFont("Microsoft YaHei", 28, QFont.Bold))
         title.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
         layout.addWidget(title)
 
@@ -420,7 +421,7 @@ class LoginWindow(QWidget):
         password = self.login_password.text().strip()
 
         if not username or not password:
-            QMessageBox.warning(self, '提示', '请输入用户名和密码')
+            show_warning(self, '提示', '请输入用户名和密码')
             return
 
         user = auth_service.login(username, password)
@@ -430,7 +431,7 @@ class LoginWindow(QWidget):
             self.finished.emit(username, password)
             self.close()
         else:
-            QMessageBox.critical(self, '登录失败', '用户名或密码错误')
+            show_error(self, '登录失败', '用户名或密码错误')
 
     def _save_credentials(self, username, password):
         """保存登录凭据到文件"""
@@ -463,24 +464,24 @@ class LoginWindow(QWidget):
         confirm = self.reg_confirm.text().strip()
 
         if not username or len(username) < 3:
-            QMessageBox.warning(self, '提示', '用户名至少3个字符')
+            show_warning(self, '提示', '用户名至少3个字符')
             return
 
         if not password or len(password) < 6:
-            QMessageBox.warning(self, '提示', '密码至少6位')
+            show_warning(self, '提示', '密码至少6位')
             return
 
         if password != confirm:
-            QMessageBox.warning(self, '提示', '两次输入的密码不一致')
+            show_warning(self, '提示', '两次输入的密码不一致')
             return
 
         user_id = auth_service.register(username, password, nickname)
         if user_id:
-            QMessageBox.information(self, '注册成功', '账号注册成功，请登录')
+            show_info(self, '注册成功', '账号注册成功，请登录')
             self.stack.setCurrentIndex(0)
             self.login_username.setText(username)
         else:
-            QMessageBox.critical(self, '注册失败', '用户名已存在')
+            show_error(self, '注册失败', '用户名已存在')
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

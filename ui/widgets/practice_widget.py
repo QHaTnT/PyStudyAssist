@@ -6,9 +6,10 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QListWidget, QTextEdit, QRadioButton, QLineEdit,
-    QGroupBox, QMessageBox, QButtonGroup, QComboBox,
+    QGroupBox, QButtonGroup, QComboBox,
     QCheckBox, QSplitter, QProgressBar, QScrollArea, QFrame
 )
+from ui.styles.message_box import show_warning
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFont
 from core.services.data_service import data_service
@@ -98,6 +99,7 @@ class PracticeWidget(QWidget):
         self.question_text.setReadOnly(True)
         self.question_text.setMaximumHeight(200)
         self.question_text.setFont(QFont("Microsoft YaHei", 18))
+        self.question_text.setPlaceholderText("请先选择分类和题型，然后点击「加载题目」开始练习")
         self.question_text.setStyleSheet(f"""
             QTextEdit {{
                 background: transparent;
@@ -185,7 +187,7 @@ class PracticeWidget(QWidget):
             self._show_question()
             self.question_label.setText(f"题目: 1/{len(self.current_questions)}")
         else:
-            QMessageBox.warning(self, '提示', '没有找到题目')
+            show_warning(self, '提示', '没有找到题目，请尝试调整筛选条件')
 
     def _show_question(self):
         if not self.current_questions or self.current_index >= len(self.current_questions):
@@ -295,7 +297,7 @@ class PracticeWidget(QWidget):
     def _submit_answer(self):
         answer = self._get_answer()
         if not answer:
-            QMessageBox.warning(self, '提示', '请先作答')
+            show_warning(self, '提示', '请先作答')
             return
 
         is_correct = self.current_question.check_answer(answer)

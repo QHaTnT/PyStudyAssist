@@ -63,7 +63,7 @@ class ProfileWidget(QWidget):
         info_layout.setSpacing(8)
 
         name = QLabel(self.current_user.nickname or self.current_user.username)
-        name.setFont(QFont("SF Pro Display", 24, QFont.Bold))
+        name.setFont(QFont("Microsoft YaHei", 24, QFont.Bold))
         name.setStyleSheet("color: #1E293B; background: transparent;")
         info_layout.addWidget(name)
 
